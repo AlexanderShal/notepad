@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Notepad++ iOS Web</title>
+    
+    <!-- Настройки PWA для iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Блокнот++">
+    
+    <!-- Подключаем стили и скрипты Prism.js для подсветки кода через CDN cdnjs -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --bar-color: #2d2d2d;
+            --text-color: #f8f8f2;
+            --accent-color: #007aff;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* Верхняя панель */
+        .toolbar {
+            background-color: var(--bar-color);
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3d3d3d;
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .buttons-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-secondary {
+            background-color: #444;
+        }
+
+        select {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        /* Панель быстрых символов */
+        .sym-panel {
+            background-color: #252526;
+            border-bottom: 1px solid #3d3d3d;
+            display: flex;
+            gap: 6px;
+            padding: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            z-index: 10;
+        }
+
+        .sym-panel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sym-btn {
+            background-color: #3e3e3f;
+            color: #ffffff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .sym-btn:active {
+            background-color: var(--accent-color);
+        }
+
+        /* Зона редактора */
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            color: transparent;
+            caret-color: var(--text-color);
+            border: none;
+            resize: none;
+            outline: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 15px;
+            line-height: 1.5;
+            padding: 15px;
+            white-space: pre;
+            overflow: auto;
+            z-index: 2;
+        }
+
+        pre {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0 !important;
+            padding: 15px !important;
+            box-sizing: border-box;
+            background: transparent !important;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 15px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        code {
+            font-family: inherit !important;
+            background: transparent !important;
+            padding: 0 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="title">Notepad++ Lite</div>
+        <div class="buttons-group">
+            <select id="languageSelect" onchange="updateHighlight()">
+                <option value="html">HTML</option>
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="css">CSS</option>
+            </select>
+            <button class="btn btn-secondary" onclick="triggerOpen()">Открыть</button>
+            <button class="btn" onclick="saveFile()">Сохранить</button>
+        </div>
+    </div>
+
+    <div class="sym-panel">
+        <button class="sym-btn" onclick="insertText('\t')">Tab</button>
+        <button class="sym-btn" onclick="insertText('{')">{</button>
+        <button class="sym-btn" onclick="insertText('}')">}</button>
+        <button class="sym-btn" onclick="insertText('[')">[</button>
+        <button class="sym-btn" onclick="insertText(']')">]</button>
+        <button class="sym-btn" onclick="insertText('(')">(</button>
+        <button class="sym-btn" onclick="insertText(')')">)</button>
+        <button class="sym-btn" onclick="insertText('<')">&lt;</button>
+        <button class="sym-btn" onclick="insertText('>')">&gt;</button>
+        <button class="sym-btn" onclick="insertText(';')">;</button>
+        <button class="sym-btn" onclick="insertText('&quot;')">"</button>
+        <button class="sym-btn" onclick="insertText(\''\')">'</button>
+        <button class="sym-btn" onclick="insertText('=')">=</button>
+        <button class="sym-btn" onclick="insertText(':')">:</button>
+        <button class="sym-btn" onclick="insertText('/')">/</button>
+    </div>
+
+    <div class="editor-container">
+        <textarea id="editing" spellcheck="false" autocapitalize="none" autocomplete="off" autocorrect="off" oninput="updateHighlight(); syncScroll();" onscroll="syncScroll()">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;Привет, iPhone!&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;Панель символов работает!&lt;/h1&gt;
+&lt;/body&gt;
+&lt;/html&gt;</textarea>
+        
+        <pre id="highlighting" aria-hidden="true"><code class="language-html" id="highlighting-content"></code></pre>
+    </div>
+
+    <!-- Исправленный инпут с явным указанием типов файлов для iOS -->
+    <input type="file" id="fileInput" accept=".txt,.html,.js,.py,.css,.json" style="display: none;" onchange="openFile(this)">
+
+    <script>
+        const textarea = document.getElementById("editing");
+        const highlightContent = document.getElementById("highlighting-content");
+        const highlightPre = document.getElementById("highlighting");
+        const langSelect = document.getElementById("languageSelect");
+
+        function insertText(symbol) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            
+            textarea.value = text.substring(0, start) + symbol + text.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + symbol.length;
+            textarea.focus();
+            
+            updateHighlight();
+            syncScroll();
+        }
+
+        function updateHighlight() {
+            let text = textarea.value;
+            if(text[text.length-1] === "\n") { text += " "; }
+            highlightContent.className = "language-" + langSelect.value;
+            highlightContent.textContent = text;
+            Prism.highlightElement(highlightContent);
+        }
+
+        function syncScroll() {
+            highlightPre.scrollTop = textarea.scrollTop;
+            highlightPre.scrollLeft = textarea.scrollLeft;
+        }
+
+        function triggerOpen() {
+            document.getElementById('fileInput').click();
+        }
+
+        function openFile(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (['js'].includes(ext)) langSelect.value = 'javascript';
+            else if (['py'].includes(ext)) langSelect.value = 'python';
+            else if (['css'].includes(ext)) langSelect.value = 'css';
+            else langSelect.value = 'html';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                textarea.value = e.target.result;
+                updateHighlight();
+                // Сбрасываем значение инпута, чтобы можно было открыть тот же файл повторно
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function saveFile() {
+            const text = textarea.value;
+            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+            const a = document.createElement("a");
+            let ext = langSelect.value === 'javascript' ? 'js' : langSelect.value === 'python' ? 'py' : langSelect.value;
+            a.href = URL.createObjectURL(blob);
+            a.download = `script.${ext}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        updateHighlight();
+    </script>
+</body>
+</html>
